@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, touch-action= manipulation">
+  <title>Раннер • Персонажи и костюмы</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a1a 100%);
+      min-height: 100vh; display: flex; justify-content: center; align-items: center;
+      font-family: 'Courier New', Courier, monospace;
+      touch-action: manipulation; user-select: none; overflow: hidden;
+    }
+    .game-wrapper {
+      position: relative; display: flex; flex-direction: column;
+      align-items: center; gap: 15px;
+    }
+    .game-container {
+      position: relative; background-color: #f7f7f7; border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 80px rgba(100,100,255,0.3), inset 0 0 15px rgba(255,255,255,0.3);
+      overflow: hidden; width: 100%; max-width: 800px;
+    }
+    canvas { display: block; width: 100%; height: auto; background-color: #ffffff; cursor: pointer; touch-action: manipulation; }
+    .record-panel {
+      position: absolute; top: 12px; right: 20px; background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(10px); color: #ffd700; padding: 8px 18px;
+      border-radius: 40px; font-weight: bold; font-size: 1.2rem; letter-spacing: 1px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4), 0 0 20px rgba(255,215,0,0.3); border: 1px solid rgba(255,255,255,0.35);
+      display: flex; align-items: center; gap: 6px; z-index: 10; pointer-events: none;
+    }
+    .music-toggle, .pause-button, .in-game-menu-btn {
+      position: absolute; top: 12px; background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(10px); color: white; border: 1px solid rgba(255,255,255,0.35);
+      border-radius: 40px; padding: 8px 14px; font-weight: bold; font-size: 1.1rem;
+      cursor: pointer; z-index: 20; letter-spacing: 1px; transition: all 0.3s;
+      font-family: 'Courier New', monospace; white-space: nowrap; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    }
+    .music-toggle { left: 20px; }
+    .pause-button { left: 50%; transform: translateX(-50%); }
+    .in-game-menu-btn { top: 60px; left: 50%; transform: translateX(-50%); display: none; }
+    .music-toggle:hover, .pause-button:hover, .in-game-menu-btn:hover {
+      background: rgba(30,30,40,0.9); box-shadow: 0 4px 20px rgba(100,100,255,0.4);
+    }
+    .continue-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 25; display: none;
+    }
+    .continue-panel {
+      background: linear-gradient(145deg, #1e1e2e, #2a2a3e); border: 2px solid #ffd700;
+      border-radius: 20px; padding: 25px 35px; text-align: center; color: white;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.8), 0 0 30px rgba(255,215,0,0.2);
+    }
+    .menu-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.9); backdrop-filter: blur(12px); display: flex;
+      justify-content: center; align-items: center; z-index: 30; border-radius: 24px;
+    }
+    /* ... остальные стили как в оригинале ... */
+  </style>
+</head>
+<body>
+<div class="game-wrapper">
+  <div class="game-container" id="gameContainer">
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <!-- ... кнопки и панели как в оригинале ... -->
+  </div>
+</div>
+
+<script>
+(function() {
+    // ... инициализация переменных как в оригинале ...
+
+    // Улучшенная система частиц
+    let particles = [];
+    
+    // Улучшенные параметры персонажей
+    const CHARACTERS = {
+      LEO: { 
+        id: 'leo', name: 'Лео', type: 'animal', 
+        color: '#ff8f00', secondary: '#e65100', belly: '#ffe0b2', 
+        earInner: '#ffab91', earShape: 'round', tailType: 'long',
+        mane: '#ff6d00', maneHighlight: '#ffab40',
+        eyeColor: '#4e342e', noseColor: '#3e2723',
+        hasMane: true, hasWhiskers: false, hasStripes: false
+      },
+      DINO: { 
+        id: 'dino', name: 'Дино', type: 'animal', 
+        color: '#43a047', secondary: '#2e7d32', belly: '#a5d6a7', 
+        earInner: '#81c784', earShape: 'spikes', tailType: 'short', 
+        hasSpikes: true, spikeColor: '#1b5e20',
+        eyeColor: '#ffeb3b', noseColor: '#1b5e20',
+        hasScales: true, scaleColor: '#66bb6a'
+      },
+      CAT: { 
+        id: 'cat', name: 'Котик', type: 'animal', 
+        color: '#78909c', secondary: '#546e7a', belly: '#cfd8dc', 
+        earInner: '#f48fb1', earShape: 'pointy', tailType: 'curly', 
+        hasWhiskers: true, whiskerColor: '#eceff1',
+        eyeColor: '#4caf50', noseColor: '#ff80ab',
+        hasStripes: true, stripeColor: '#455a64'
+      },
+      DOG: { 
+        id: 'dog', name: 'Собачка', type: 'animal', 
+        color: '#8d6e63', secondary: '#5d4037', belly: '#d7ccc8', 
+        earInner: '#bcaaa4', earShape: 'floppy', tailType: 'waggy', 
+        hasTongue: true, tongueColor: '#ff5252',
+        eyeColor: '#3e2723', noseColor: '#212121',
+        hasSpots: true, spotColor: '#4e342e'
+      },
+      PANTHER: { 
+        id: 'panther', name: 'Пантера', type: 'animal', 
+        color: '#212121', secondary: '#424242', belly: '#484848', 
+        earInner: '#616161', earShape: 'small_round', tailType: 'long_sleek', 
+        hasTeeth: true, elongated: true,
+        eyeColor: '#ffeb3b', noseColor: '#000000',
+        hasMuscles: true, muscleColor: '#333333'
+      },
+      BEAR: { 
+        id: 'bear', name: 'Медвежонок', type: 'animal', 
+        color: '#6d4c41', secondary: '#4e342e', belly: '#bcaaa4', 
+        earInner: '#a1887f', earShape: 'small_round', tailType: 'tiny', 
+        chubby: true,
+        eyeColor: '#212121', noseColor: '#212121',
+        hasClaws: true, clawColor: '#3e2723'
+      },
+      FOX: { 
+        id: 'fox', name: 'Лис', type: 'animal', 
+        color: '#ff6d00', secondary: '#bf360c', belly: '#ffcc80', 
+        earInner: '#ffffff', earShape: 'pointy_tall', tailType: 'bushy', 
+        pointyNose: true,
+        eyeColor: '#ffd600', noseColor: '#212121',
+        hasWhiteTips: true, whiteTipColor: '#ffffff'
+      },
+      RABBIT: { 
+        id: 'rabbit', name: 'Кролик', type: 'animal', 
+        color: '#f5f5f5', secondary: '#e0e0e0', belly: '#ffffff', 
+        earInner: '#ff80ab', earShape: 'long_ears', tailType: 'fluffy_ball', 
+        jumpBonus: true,
+        eyeColor: '#f44336', noseColor: '#ff80ab',
+        hasFluffyTail: true, fluffyTailColor: '#ffffff'
+      },
+      // ... остальные персонажи с улучшенными параметрами ...
+    };
+
+    // Улучшенная функция отрисовки персонажа с детализацией
+    function drawCharacter() {
+      const { x, y, width, height } = character;
+      ctx.save();
+      const skin = activeSkin;
+      const ch = currentCharacter;
+      const colors = getEffectiveColors();
+      
+      // Анимация дыхания
+      const breathScale = 1 + Math.sin(Date.now() * 0.003) * 0.02;
+      const cx = x + width/2;
+      const cy = y + height/2;
+      
+      ctx.translate(cx, cy);
+      ctx.scale(breathScale, breathScale);
+      ctx.translate(-cx, -cy);
+
+      if (ch.type === 'star') {
+        drawDetailedStar(x, y, width, height, ch, skin);
+      } else if (ch.type === 'planet') {
+        drawDetailedPlanet(x, y, width, height, ch, skin);
+      } else if (ch.type === 'humanoid') {
+        drawDetailedHumanoid(x, y, width, height, ch, skin);
+      } else {
+        drawDetailedAnimal(x, y, width, height, ch, skin);
+      }
+
+      ctx.restore();
+    }
+
+    function drawDetailedAnimal(x, y, w, h, ch, skin) {
+      const colors = getEffectiveColors();
+      
+      // Тень под персонажем
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.beginPath();
+      ctx.ellipse(x + w/2, y + h*0.9, w*0.35, h*0.05, 0, 0, Math.PI*2);
+      ctx.fill();
+
+      // Тело с градиентом
+      const bodyGrad = ctx.createLinearGradient(x, y + h*0.3, x, y + h*0.8);
+      bodyGrad.addColorStop(0, colors.primary);
+      bodyGrad.addColorStop(0.5, colors.belly);
+      bodyGrad.addColorStop(1, colors.secondary);
+      
+      ctx.fillStyle = bodyGrad;
+      
+      // Рисуем тело с учетом особенностей
+      if (ch.chubby) {
+        // Пухлое тело
+        ctx.beginPath();
+        ctx.ellipse(x + w*0.5, y + h*0.55, w*0.4, h*0.4, 0, 0, Math.PI*2);
+        ctx.fill();
+      } else if (ch.elongated) {
+        // Вытянутое тело
+        ctx.beginPath();
+        ctx.ellipse(x + w*0.5, y + h*0.55, w*0.28, h*0.38, 0, 0, Math.PI*2);
+        ctx.fill();
+      } else {
+        // Обычное тело
+        ctx.beginPath();
+        ctx.ellipse(x + w*0.5, y + h*0.55, w*0.34, h*0.35, 0, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      // Детали тела
+      if (ch.hasMuscles) {
+        ctx.strokeStyle = ch.muscleColor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x + w*0.4, y + h*0.5, w*0.12, 0.2, 1.2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x + w*0.6, y + h*0.5, w*0.12, 1.9, -0.2);
+        ctx.stroke();
+      }
+
+      if (ch.hasScales) {
+        ctx.fillStyle = ch.scaleColor;
+        for (let i = 0; i < 5; i++) {
+          const sx = x + w*0.3 + Math.random()*w*0.4;
+          const sy = y + h*0.4 + Math.random()*h*0.3;
+          ctx.beginPath();
+          ctx.arc(sx, sy, 2, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
+
+      // Голова с деталями
+      const headX = x + w*0.7;
+      const headY = y + h*0.28;
+      const headSize = ch.chubby ? w*0.3 : (ch.elongated ? w*0.22 : w*0.25);
+      
+      // Основная форма головы
+      const headGrad = ctx.createRadialGradient(headX - headSize*0.2, headY - headSize*0.2, headSize*0.1, headX, headY, headSize);
+      headGrad.addColorStop(0, colors.primary);
+      headGrad.addColorStop(1, colors.secondary);
+      
+      ctx.fillStyle = headGrad;
+      ctx.beginPath();
+      ctx.arc(headX, headY, headSize, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Граница головы
+      ctx.strokeStyle = colors.secondary;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Грива для льва
+      if (ch.hasMane) {
+        ctx.fillStyle = ch.mane;
+        for (let i = 0; i < 12; i++) {
+          const angle = (i / 12) * Math.PI * 2;
+          const mx = headX + Math.cos(angle) * headSize * 1.2;
+          const my = headY + Math.sin(angle) * headSize * 1.2;
+          ctx.beginPath();
+          ctx.arc(mx, my, headSize * 0.3, 0, Math.PI*2);
+          ctx.fill();
+        }
+        // Блик на гриве
+        ctx.fillStyle = ch.maneHighlight;
+        for (let i = 0; i < 6; i++) {
+          const angle = (i / 6) * Math.PI;
+          const mx = headX + Math.cos(angle) * headSize * 1.1;
+          const my = headY + Math.sin(angle) * headSize * 0.8;
+          ctx.beginPath();
+          ctx.arc(mx, my, headSize * 0.15, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
+
+      // Глаза с детальной отрисовкой
+      drawDetailedEyes(headX, headY, headSize, ch, skin);
+      
+      // Нос с текстурой
+      ctx.fillStyle = ch.noseColor;
+      if (ch.pointyNose) {
+        // Острый нос (лис)
+        ctx.beginPath();
+        ctx.moveTo(headX + headSize * 0.8, headY);
+        ctx.lineTo(headX + headSize * 1.1, headY - 2);
+        ctx.lineTo(headX + headSize * 1.1, headY + 2);
+        ctx.lineTo(headX + headSize * 0.8, headY + 1);
+        ctx.fill();
+        
+        // Белый кончик носа
+        if (ch.hasWhiteTips) {
+          ctx.fillStyle = ch.whiteTipColor;
+          ctx.beginPath();
+          ctx.arc(headX + headSize * 1.05, headY, 1.5, 0, Math.PI*2);
+          ctx.fill();
+        }
+      } else {
+        // Обычный нос
+        ctx.beginPath();
+        ctx.arc(headX + headSize * 0.5, headY + headSize * 0.1, headSize * 0.18, 0, Math.PI*2);
+        ctx.fill();
+        
+        // Блик на носу
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.beginPath();
+        ctx.arc(headX + headSize * 0.55, headY + headSize * 0.05, headSize * 0.06, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      // Усы
+      if (ch.hasWhiskers) {
+        ctx.strokeStyle = ch.whiskerColor;
+        ctx.lineWidth = 0.8;
+        for (let i = -2; i <= 2; i++) {
+          if (i === 0) continue;
+          const side = i > 0 ? 1 : -1;
+          ctx.beginPath();
+          ctx.moveTo(headX + headSize * 0.3, headY + headSize * 0.25);
+          ctx.lineTo(headX + headSize * (0.3 + side * 0.6), headY + headSize * (0.25 - i * 0.1));
+          ctx.stroke();
+        }
+      }
+
+      // Рот
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(headX + headSize * 0.3, headY + headSize * 0.35, headSize * 0.15, 0.1, Math.PI - 0.1);
+      ctx.stroke();
+
+      // Язык для собачки
+      if (ch.hasTongue && !paused && !gameOver) {
+        const tongueWave = Math.sin(Date.now() * 0.01) * 1.5;
+        ctx.fillStyle = ch.tongueColor;
+        ctx.beginPath();
+        ctx.ellipse(headX + headSize * 0.4, headY + headSize * 0.5, 4, 7, 0.1, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      // Зубы для пантеры
+      if (ch.hasTeeth) {
+        ctx.fillStyle = '#ffffff';
+        // Верхние клыки
+        ctx.beginPath();
+        ctx.moveTo(headX + headSize * 0.2, headY + headSize * 0.4);
+        ctx.lineTo(headX + headSize * 0.25, headY + headSize * 0.6);
+        ctx.lineTo(headX + headSize * 0.3, headY + headSize * 0.4);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(headX + headSize * 0.5, headY + headSize * 0.4);
+        ctx.lineTo(headX + headSize * 0.55, headY + headSize * 0.6);
+        ctx.lineTo(headX + headSize * 0.6, headY + headSize * 0.4);
+        ctx.fill();
+      }
+
+      // Уши с детальной отрисовкой
+      drawDetailedEars(x, y, w, h, headX, headY, headSize, ch, colors);
+      
+      // Лапы с когтями
+      drawDetailedLegs(x, y, w, h, ch, colors);
+      
+      // Хвост с анимацией
+      drawDetailedTail(x, y, w, h, ch, colors);
+      
+      // Полосы/пятна
+      if (ch.hasStripes) {
+        ctx.strokeStyle = ch.stripeColor;
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 4; i++) {
+          const sx = headX - headSize*0.5 + i * headSize*0.3;
+          ctx.beginPath();
+          ctx.moveTo(sx, headY - headSize*0.3);
+          ctx.lineTo(sx + 5, headY + headSize*0.3);
+          ctx.stroke();
+        }
+      }
+      
+      if (ch.hasSpots) {
+        ctx.fillStyle = ch.spotColor;
+        for (let i = 0; i < 5; i++) {
+          const sx = x + w*0.3 + Math.random()*w*0.4;
+          const sy = y + h*0.45 + Math.random()*h*0.2;
+          ctx.beginPath();
+          ctx.arc(sx, sy, 3, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
+    }
+
+    function drawDetailedEyes(hx, hy, hs, ch, skin) {
+      // Белки глаз
+      ctx.fillStyle = '#ffffff';
+      
+      // Левый глаз
+      ctx.beginPath();
+      ctx.arc(hx - hs*0.25, hy - hs*0.1, hs*0.22, 0, Math.PI*2);
+      ctx.fill();
+      // Правый глаз
+      ctx.beginPath();
+      ctx.arc(hx + hs*0.25, hy - hs*0.1, hs*0.22, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Радужка
+      ctx.fillStyle = ch.eyeColor || '#4e342e';
+      ctx.beginPath();
+      ctx.arc(hx - hs*0.25, hy - hs*0.1, hs*0.15, 0, Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(hx + hs*0.25, hy - hs*0.1, hs*0.15, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Зрачки
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(hx - hs*0.25, hy - hs*0.1, hs*0.08, 0, Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(hx + hs*0.25, hy - hs*0.1, hs*0.08, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Блики в глазах
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(hx - hs*0.28, hy - hs*0.15, hs*0.04, 0, Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(hx + hs*0.22, hy - hs*0.15, hs*0.04, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Брови
+      ctx.strokeStyle = ch.secondary;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(hx - hs*0.25, hy - hs*0.3, hs*0.25, 0.2, Math.PI - 0.2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(hx + hs*0.25, hy - hs*0.3, hs*0.25, 0.2, Math.PI - 0.2);
+      ctx.stroke();
+    }
+
+    function drawDetailedEars(x, y, w, h, hx, hy, hs, ch, colors) {
+      ctx.fillStyle = colors.primary;
+      ctx.strokeStyle = colors.secondary;
+      ctx.lineWidth = 1.5;
+      
+      if (ch.earShape === 'long_ears') {
+        // Длинные кроличьи уши
+        drawFloppyEar(x + w*0.25, y, 8, 25, -0.3, colors, ch);
+        drawFloppyEar(x + w*0.55, y, 8, 25, 0.3, colors, ch);
+      } else if (ch.earShape === 'pointy_tall') {
+        // Высокие лисьи уши
+        drawPointyEar(hx - hs*0.5, hy - hs*0.8, 8, 20, -0.2, colors);
+        drawPointyEar(hx + hs*0.5, hy - hs*0.8, 8, 20, 0.2, colors);
+      } else if (ch.earShape === 'pointy') {
+        // Обычные острые уши
+        drawPointyEar(hx - hs*0.6, hy - hs*0.7, 7, 16, -0.1, colors);
+        drawPointyEar(hx + hs*0.6, hy - hs*0.7, 7, 16, 0.1, colors);
+      } else if (ch.earShape === 'floppy') {
+        // Висячие уши
+        drawFloppyEar(hx - hs*0.6, hy - hs*0.3, 7, 18, -0.5, colors, ch);
+        drawFloppyEar(hx + hs*0.6, hy - hs*0.3, 7, 18, 0.5, colors, ch);
+      } else {
+        // Маленькие круглые уши
+        ctx.beginPath();
+        ctx.arc(hx - hs*0.6, hy - hs*0.5, hs*0.2, 0, Math.PI*2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(hx + hs*0.6, hy - hs*0.5, hs*0.2, 0, Math.PI*2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Внутренняя часть уха
+        ctx.fillStyle = ch.earInner;
+        ctx.beginPath();
+        ctx.arc(hx - hs*0.6, hy - hs*0.5, hs*0.12, 0, Math.PI*2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(hx + hs*0.6, hy - hs*0.5, hs*0.12, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+
+    function drawPointyEar(ex, ey, ew, eh, angle, colors) {
+      ctx.save();
+      ctx.translate(ex, ey);
+      ctx.rotate(angle);
+      ctx.fillStyle = colors.primary;
+      ctx.beginPath();
+      ctx.moveTo(0, -eh/2);
+      ctx.lineTo(-ew/2, eh/2);
+      ctx.lineTo(ew/2, eh/2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      
+      // Внутренняя часть
+      ctx.fillStyle = colors.earInner;
+      ctx.beginPath();
+      ctx.moveTo(0, -eh/3);
+      ctx.lineTo(-ew/3, eh/3);
+      ctx.lineTo(ew/3, eh/3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawFloppyEar(ex, ey, ew, eh, angle, colors, ch) {
+      ctx.save();
+      ctx.translate(ex, ey);
+      ctx.rotate(angle);
+      
+      const wave = ch.hasTongue ? Math.sin(Date.now() * 0.005) * 5 : 0;
+      
+      ctx.fillStyle = colors.primary;
+      ctx.beginPath();
+      ctx.ellipse(0, -eh/4, ew, eh/2, 0.1, 0, Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
+      
+      ctx.fillStyle = colors.earInner;
+      ctx.beginPath();
+      ctx.ellipse(0, -eh/4, ew*0.6, eh/3, 0.1, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawDetailedLegs(x, y, w, h, ch, colors) {
+      ctx.fillStyle = colors.secondary;
+      
+      // Передние лапы
+      const legWidth = w * 0.08;
+      const legHeight = h * 0.15;
+      
+      if (character.grounded && !paused && !gameOver) {
+        // Анимация бега
+        const runCycle = Date.now() * 0.01;
+        const leftLegOffset = Math.sin(runCycle) * 3;
+        const rightLegOffset = Math.sin(runCycle + Math.PI) * 3;
+        
+        // Левая лапа
+        drawPaw(x + w*0.3, y + h*0.85 + leftLegOffset, legWidth, legHeight, ch);
+        // Правая лапа
+        drawPaw(x + w*0.6, y + h*0.85 + rightLegOffset, legWidth, legHeight, ch);
+      } else {
+        drawPaw(x + w*0.3, y + h*0.85, legWidth, legHeight, ch);
+        drawPaw(x + w*0.6, y + h*0.85, legWidth, legHeight, ch);
+      }
+    }
+
+    function drawPaw(px, py, pw, ph, ch) {
+      ctx.fillStyle = ch.secondary;
+      ctx.beginPath();
+      ctx.ellipse(px, py, pw, ph, 0, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Пальцы
+      ctx.fillStyle = ch.color;
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.arc(px + i*2, py - ph*0.4, 2, 0, Math.PI*2);
+        ctx.fill();
+      }
+      
+      // Когти
+      if (ch.hasClaws) {
+        ctx.fillStyle = ch.clawColor;
+        for (let i = -1; i <= 1; i++) {
+          ctx.beginPath();
+          ctx.moveTo(px + i*2, py - ph*0.6);
+          ctx.lineTo(px + i*2 + 1, py - ph*0.9);
+          ctx.lineTo(px + i*2 - 1, py - ph*0.9);
+          ctx.fill();
+        }
+      }
+    }
+
+    function drawDetailedTail(x, y, w, h, ch, colors) {
+      ctx.strokeStyle = colors.primary;
+      ctx.lineWidth = w * 0.08;
+      
+      if (ch.tailType === 'bushy') {
+        // Пушистый лисий хвост
+        const tailWave = Math.sin(Date.now() * 0.003) * 5;
+        ctx.fillStyle = colors.primary;
+        ctx.beginPath();
+        ctx.moveTo(x + w*0.1, y + h*0.7);
+        ctx.quadraticCurveTo(x - w*0.3, y + h*0.5, x - w*0.3 + tailWave, y + h*0.3);
+        ctx.quadraticCurveTo(x - w*0.2, y + h*0.15, x - w*0.1, y + h*0.2);
+        ctx.quadraticCurveTo(x + w*0.05, y + h*0.4, x + w*0.1, y + h*0.7);
+        ctx.fill();
+        
+        // Белый кончик хвоста
+        if (ch.hasWhiteTips) {
+          ctx.fillStyle = ch.whiteTipColor;
+          ctx.beginPath();
+          ctx.arc(x - w*0.25 + tailWave, y + h*0.25, 5, 0, Math.PI*2);
+          ctx.fill();
+        }
+      } else if (ch.tailType === 'long_sleek') {
+        // Длинный гладкий хвост
+        const tailWave = Math.sin(Date.now() * 0.002) * 4;
+        ctx.beginPath();
+        ctx.moveTo(x + w*0.1, y + h*0.75);
+        ctx.quadraticCurveTo(x - w*0.4, y + h*0.6, x - w*0.35 + tailWave, y + h*0.2);
+        ctx.stroke();
+      } else if (ch.tailType === 'fluffy_ball') {
+        // Пушистый хвостик-шарик
+        const bounce = Math.sin(Date.now() * 0.01) * 2;
+        ctx.fillStyle = ch.fluffyTailColor;
+        ctx.beginPath();
+        ctx.arc(x + w*0.1, y + h*0.75 + bounce, 6, 0, Math.PI*2);
+        ctx.fill();
+      } else if (ch.tailType === 'waggy') {
+        // Виляющий хвост
+        const wag = Math.sin(Date.now() * 0.02) * 8;
+        ctx.beginPath();
+        ctx.moveTo(x + w*0.1, y + h*0.75);
+        ctx.quadraticCurveTo(x - w*0.3, y + h*0.6, x - w*0.25 + wag, y + h*0.3);
+        ctx.stroke();
+      } else if (ch.tailType === 'curly') {
+        // Закрученный хвост
+        ctx.beginPath();
+        ctx.moveTo(x + w*0.1, y + h*0.75);
+        ctx.quadraticCurveTo(x - w*0.2, y + h*0.5, x - w*0.15, y + h*0.4);
+        ctx.quadraticCurveTo(x - w*0.1, y + h*0.3, x - w*0.05, y + h*0.35);
+        ctx.stroke();
+      } else {
+        // Короткий хвост
+        ctx.beginPath();
+        ctx.moveTo(x + w*0.05, y + h*0.8);
+        ctx.quadraticCurveTo(x - w*0.1, y + h*0.75, x - w*0.08, y + h*0.65);
+        ctx.stroke();
+      }
+    }
+
+    function drawDetailedStar(x, y, w, h, ch, skin) {
+      const cx = x + w/2;
+      const cy = y + h/2;
+      const colors = getEffectiveColors();
+      
+      // Свечение звезды
+      ctx.shadowColor = colors.secondary;
+      ctx.shadowBlur = 30;
+      
+      // Анимированные лучи
+      const time = Date.now() * 0.001;
+      const spikes = 8;
+      const outerRadius = w * 0.4 + Math.sin(time * 2) * 3;
+      const innerRadius = w * 0.2 + Math.sin(time * 2 + Math.PI) * 2;
+      
+      const starGrad = ctx.createRadialGradient(cx, cy, innerRadius*0.5, cx, cy, outerRadius);
+      starGrad.addColorStop(0, '#ffffff');
+      starGrad.addColorStop(0.3, colors.primary);
+      starGrad.addColorStop(1, colors.secondary);
+      
+      ctx.fillStyle = starGrad;
+      ctx.beginPath();
+      for (let i = 0; i < spikes * 2; i++) {
+        const radius = i % 2 === 0 ? outerRadius : innerRadius;
+        const angle = (i * Math.PI) / spikes - Math.PI / 2;
+        const sx = cx + Math.cos(angle) * radius;
+        const sy = cy + Math.sin(angle) * radius;
+        if (i === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      
+      // Лицо звезды
+      drawDetailedFace(cx, cy, w*0.15, ch);
+    }
+
+    function drawDetailedPlanet(x, y, w, h, ch, skin) {
+      const cx = x + w/2;
+      const cy = y + h/2;
+      const radius = w * 0.38;
+      const colors = getEffectiveColors();
+      
+      // Атмосфера планеты
+      ctx.shadowColor = colors.secondary;
+      ctx.shadowBlur = 20;
+      
+      // Градиент планеты
+      const planetGrad = ctx.createRadialGradient(cx - radius*0.3, cy - radius*0.3, radius*0.1, cx, cy, radius);
+      planetGrad.addColorStop(0, '#ffffff');
+      planetGrad.addColorStop(0.3, colors.primary);
+      planetGrad.addColorStop(1, colors.secondary);
+      
+      ctx.fillStyle = planetGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI*2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      
+      // Кратеры для луны
+      if (ch.moonCraters && !skin) {
+        drawCraters(cx, cy, radius);
+      }
+      
+      // Континенты для земли
+      if (ch.earthColors && !skin) {
+        drawContinents(cx, cy, radius);
+      }
+      
+      // Лицо планеты
+      drawDetailedFace(cx, cy, radius*0.4, ch);
+    }
+
+    function drawCraters(cx, cy, radius) {
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      // Большие кратеры
+      const craters = [
+        { x: -0.3, y: -0.2, r: 0.15 },
+        { x: 0.4, y: 0.1, r: 0.12 },
+        { x: -0.1, y: 0.4, r: 0.18 },
+        { x: 0.2, y: -0.4, r: 0.1 }
+      ];
+      
+      craters.forEach(crater => {
+        ctx.beginPath();
+        ctx.arc(cx + crater.x * radius, cy + crater.y * radius, crater.r * radius, 0, Math.PI*2);
+        ctx.fill();
+        
+        // Внутренняя тень кратера
+        const craterGrad = ctx.createRadialGradient(
+          cx + crater.x * radius, cy + crater.y * radius, crater.r * radius * 0.2,
+          cx + crater.x * radius, cy + crater.y * radius, crater.r * radius
+        );
+        craterGrad.addColorStop(0, 'rgba(0,0,0,0.4)');
+        craterGrad.addColorStop(1, 'rgba(0,0,0,0.1)');
+        ctx.fillStyle = craterGrad;
+        ctx.beginPath();
+        ctx.arc(cx + crater.x * radius, cy + crater.y * radius, crater.r * radius, 0, Math.PI*2);
+        ctx.fill();
+      });
+    }
+
+    function drawContinents(cx, cy, radius) {
+      ctx.fillStyle = '#4caf50';
+      ctx.beginPath();
+      ctx.ellipse(cx - radius*0.2, cy - radius*0.1, radius*0.3, radius*0.2, 0.3, 0, Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(cx + radius*0.3, cy + radius*0.15, radius*0.25, radius*0.18, -0.2, 0, Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(cx - radius*0.1, cy + radius*0.3, radius*0.15, radius*0.12, 0.1, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Облака
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.beginPath();
+      ctx.ellipse(cx - radius*0.5, cy - radius*0.4, radius*0.2, radius*0.08, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(cx + radius*0.3, cy - radius*0.5, radius*0.25, radius*0.1, 0.1, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    function drawDetailedHumanoid(x, y, w, h, ch, skin) {
+      const colors = getEffectiveColors();
+      const cx = x + w/2;
+      const cy = y + h/2;
+      
+      // Тело с градиентом
+      const bodyGrad = ctx.createLinearGradient(x, y + h*0.3, x, y + h*0.9);
+      bodyGrad.addColorStop(0, colors.primary);
+      bodyGrad.addColorStop(1, colors.secondary);
+      
+      ctx.fillStyle = bodyGrad;
+      ctx.beginPath();
+      ctx.roundRect(x + w*0.2, y + h*0.35, w*0.6, h*0.45, 8);
+      ctx.fill();
+      
+      // Костюм с деталями
+      if (ch.spiderEmblem) {
+        // Эмблема паука
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        const spiderX = cx;
+        const spiderY = y + h*0.55;
+        
+        // Тело паука
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(spiderX, spiderY, 5, 0, Math.PI*2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(spiderX, spiderY - 8, 3, 0, Math.PI*2);
+        ctx.fill();
+        
+        // Ноги паука
+        for (let i = 0; i < 4; i++) {
+          const angle = (i / 4) * Math.PI - Math.PI/4;
+          ctx.beginPath();
+          ctx.moveTo(spiderX, spiderY);
+          ctx.lineTo(spiderX + Math.cos(angle) * 12, spiderY + Math.sin(angle) * 12);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(spiderX, spiderY);
+          ctx.lineTo(spiderX - Math.cos(angle) * 12, spiderY + Math.sin(angle) * 12);
+          ctx.stroke();
+        }
+      }
+      
+      // Голова
+      const headX = cx;
+      const headY = y + h*0.25;
+      const headSize = w * 0.18;
+      
+      const headGrad = ctx.createRadialGradient(headX, headY - headSize*0.2, headSize*0.1, headX, headY, headSize);
+      headGrad.addColorStop(0, colors.primary);
+      headGrad.addColorStop(1, colors.secondary);
+      
+      ctx.fillStyle = headGrad;
+      ctx.beginPath();
+      ctx.arc(headX, headY, headSize, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Глаза в маске
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.ellipse(headX - headSize*0.35, headY - headSize*0.1, 6, 8, -0.2, 0, Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(headX + headSize*0.35, headY - headSize*0.1, 6, 8, 0.2, 0, Math.PI*2);
+      ctx.fill();
+      
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(headX - headSize*0.35, headY - headSize*0.1, 6, 8, -0.2, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(headX + headSize*0.35, headY - headSize*0.1, 6, 8, 0.2, 0, Math.PI*2);
+      ctx.stroke();
+      
+      // Руки
+      ctx.fillStyle = colors.primary;
+      if (character.grounded && !paused && !gameOver) {
+        const armWave = Math.sin(Date.now() * 0.01) * 3;
+        // Левая рука
+        ctx.beginPath();
+        ctx.roundRect(x + w*0.1, y + h*0.4 + armWave, w*0.12, h*0.08, 3);
+        ctx.fill();
+        // Правая рука
+        ctx.beginPath();
+        ctx.roundRect(x + w*0.78, y + h*0.4 - armWave, w*0.12, h*0.08, 3);
+        ctx.fill();
+      }
+      
+      // Ноги
+      if (character.grounded && !paused && !gameOver) {
+        const legCycle = Date.now() * 0.01;
+        const leftLegOffset = Math.sin(legCycle) * 3;
+        const rightLegOffset = Math.sin(legCycle + Math.PI) * 3;
+        
+        ctx.fillStyle = colors.secondary;
+        ctx.beginPath();
+        ctx.roundRect(x + w*0.25, y + h*0.75 + leftLegOffset, w*0.1, h*0.12, 3);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.roundRect(x + w*0.55, y + h*0.75 + rightLegOffset, w*0.1, h*0.12, 3);
+        ctx.fill();
+      }
+    }
+
+    function drawDetailedFace(cx, cy, size, ch) {
+      // Глаза
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(cx - size*0.5, cy - size*0.1, size*0.3, 0, Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx + size*0.5, cy - size*0.1, size*0.3, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Зрачки
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(cx - size*0.5, cy - size*0.1, size*0.15, 0, Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx + size*0.5, cy - size*0.1, size*0.15, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Блики
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(cx - size*0.55, cy - size*0.15, size*0.05, 0, Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx + size*0.45, cy - size*0.15, size*0.05, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Улыбка
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy + size*0.1, size*0.3, 0.1, Math.PI - 0.1);
+      ctx.stroke();
+    }
+
+    function getEffectiveColors() {
+      const skin = activeSkin;
+      const ch = currentCharacter;
+      if (!skin) return { 
+        primary: ch.color, 
+        secondary: ch.secondary, 
+        belly: ch.belly, 
+        earInner: ch.earInner 
+      };
+      return { 
+        primary: skin.color, 
+        secondary: skin.secondary, 
+        belly: skin.belly || '#ffffff', 
+        earInner: skin.earInner || '#ffab91' 
+      };
+    }
+
+    // Улучшенная система частиц для эффектов
+    function addParticles(x, y, count, color) {
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: x,
+          y: y,
+          vx: (Math.random() - 0.5) * 5,
+          vy: -Math.random() * 8 - 2,
+          life: 30 + Math.random() * 20,
+          color: color,
+          size: Math.random() * 3 + 1
+        });
+      }
+    }
+
+    function updateParticles() {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.2;
+        p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+    }
+
+    function drawParticles() {
+      particles.forEach(p => {
+        ctx.globalAlpha = p.life / 50;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+        ctx.fill();
+        
+        // Свечение
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 5;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * 0.5, 0, Math.PI*2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    // Улучшенная отрисовка фона
+    function drawSky() {
+      const theme = getTheme();
+      if (theme === 'space') {
+        drawSpaceBackground();
+      } else if (theme === 'inverted') {
+        drawInvertedBackground();
+      } else {
+        drawNormalBackground();
+      }
+    }
+
+    function drawNormalBackground() {
+      // Небо с градиентом
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+      skyGrad.addColorStop(0, '#87CEEB');
+      skyGrad.addColorStop(0.5, '#B0E0E6');
+      skyGrad.addColorStop(1, '#E0F7FA');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, GROUND_Y);
+      
+      // Солнце
+      const sunX = CANVAS_WIDTH * 0.8;
+      const sunY = GROUND_Y * 0.2;
+      const sunGrad = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 50);
+      sunGrad.addColorStop(0, '#FFF9C4');
+      sunGrad.addColorStop(0.5, '#FFE082');
+      sunGrad.addColorStop(1, 'rgba(255,224,130,0)');
+      ctx.fillStyle = sunGrad;
+      ctx.beginPath();
+      ctx.arc(sunX, sunY, 50, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Облака
+      drawClouds();
+    }
+
+    function drawSpaceBackground() {
+      // Космический фон
+      const spaceGrad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+      spaceGrad.addColorStop(0, '#0a0a2e');
+      spaceGrad.addColorStop(0.5, '#1a1a4e');
+      spaceGrad.addColorStop(1, '#2d1b69');
+      ctx.fillStyle = spaceGrad;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, GROUND_Y);
+      
+      // Звезды с мерцанием
+      stars.forEach(s => {
+        const twinkle = Math.sin(Date.now() * 0.003 + s.twinkle) * 0.5 + 0.5;
+        const starGrad = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.size * 2);
+        starGrad.addColorStop(0, `rgba(255,255,255,${0.8 + twinkle * 0.2})`);
+        starGrad.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = starGrad;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size * 2, 0, Math.PI*2);
+        ctx.fill();
+      });
+      
+      // Планеты на заднем плане
+      drawBackgroundPlanets();
+    }
+
+    function drawBackgroundPlanets() {
+      // Маленькая планета
+      const planet1X = CANVAS_WIDTH * 0.15;
+      const planet1Y = GROUND_Y * 0.3;
+      const planet1Grad = ctx.createRadialGradient(planet1X, planet1Y, 5, planet1X, planet1Y, 20);
+      planet1Grad.addColorStop(0, '#E1BEE7');
+      planet1Grad.addColorStop(1, '#7B1FA2');
+      ctx.fillStyle = planet1Grad;
+      ctx.beginPath();
+      ctx.arc(planet1X, planet1Y, 20, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Кольца планеты
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(planet1X, planet1Y, 30, 8, -0.3, 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    function drawClouds() {
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      const cloudPositions = [
+        { x: CANVAS_WIDTH * 0.1, y: GROUND_Y * 0.1, size: 1 },
+        { x: CANVAS_WIDTH * 0.3, y: GROUND_Y * 0.15, size: 1.2 },
+        { x: CANVAS_WIDTH * 0.6, y: GROUND_Y * 0.08, size: 0.9 },
+        { x: CANVAS_WIDTH * 0.85, y: GROUND_Y * 0.12, size: 1.1 }
+      ];
+      
+      cloudPositions.forEach(cloud => {
+        const cx = (cloud.x + Date.now() * 0.0005) % (CANVAS_WIDTH + 200) - 100;
+        ctx.beginPath();
+        ctx.arc(cx, cloud.y, 20 * cloud.size, 0, Math.PI*2);
+        ctx.arc(cx + 15 * cloud.size, cloud.y - 10 * cloud.size, 15 * cloud.size, 0, Math.PI*2);
+        ctx.arc(cx + 30 * cloud.size, cloud.y, 20 * cloud.size, 0, Math.PI*2);
+        ctx.arc(cx + 15 * cloud.size, cloud.y + 5 * cloud.size, 12 * cloud.size, 0, Math.PI*2);
+        ctx.fill();
+      });
+    }
+
+    function drawGround() {
+      const theme = getTheme();
+      
+      if (theme === 'space') {
+        // Лунная поверхность
+        const groundGrad = ctx.createLinearGradient(0, GROUND_Y, 0, CANVAS_HEIGHT);
+        groundGrad.addColorStop(0, '#4a148c');
+        groundGrad.addColorStop(1, '#1a0533');
+        ctx.fillStyle = groundGrad;
+        ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y);
+        
+        // Кратеры на поверхности
+        ctx.fillStyle = '#3a0a6e';
+        for (let i = 0; i < 8; i++) {
+          const cx = (i * 100 + Date.now() * 0.01) % CANVAS_WIDTH;
+          ctx.beginPath();
+          ctx.ellipse(cx, GROUND_Y + 10, 15, 5, 0, 0, Math.PI*2);
+          ctx.fill();
+        }
+        
+        // Свечение линии горизонта
+        ctx.strokeStyle = '#7c4dff';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#7c4dff';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.moveTo(0, GROUND_Y);
+        ctx.lineTo(CANVAS_WIDTH, GROUND_Y);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      } else if (theme === 'inverted') {
+        ctx.fillStyle = '#e8e8e8';
+        ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y);
+        ctx.strokeStyle = '#cccccc';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, GROUND_Y);
+        ctx.lineTo(CANVAS_WIDTH, GROUND_Y);
+        ctx.stroke();
+      } else {
+        // Трава с текстурой
+        const groundGrad = ctx.createLinearGradient(0, GROUND_Y, 0, CANVAS_HEIGHT);
+        groundGrad.addColorStop(0, '#4CAF50');
+        groundGrad.addColorStop(0.1, '#388E3C');
+        groundGrad.addColorStop(1, '#1B5E20');
+        ctx.fillStyle = groundGrad;
+        ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y);
+        
+        // Травинки
+        ctx.strokeStyle = '#66BB6A';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 50; i++) {
+          const gx = (i * 16 + Date.now() * 0.02) % CANVAS_WIDTH;
+          const height = 3 + Math.random() * 5;
+          ctx.beginPath();
+          ctx.moveTo(gx, GROUND_Y);
+          ctx.lineTo(gx + Math.random() * 4 - 2, GROUND_Y - height);
+          ctx.stroke();
+        }
+        
+        // Линия земли
+        ctx.strokeStyle = '#2E7D32';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(0, GROUND_Y);
+        ctx.lineTo(CANVAS_WIDTH, GROUND_Y);
+        ctx.stroke();
+      }
+    }
+
+    // Обновленная функция gameLoop
+    function gameLoop() {
+      update();
+      updateParticles();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Улучшенная инициализация
+    function init() {
+      loadData();
+      resetDailyQuestIfNeeded();
+      resetWeeklyQuestIfNeeded();
+      resetPassIfNeeded();
+      if (!dailyQuests.length) generateDailyQuests();
+      if (!weeklyQuests.length) generateWeeklyQuests();
+      if (!passQuests.length) generatePassQuests();
+      updateUI();
+      resetGame();
+      
+      // Добавляем начальные частицы для красоты
+      addParticles(CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 20, '#FFD700');
+      
+      gameLoop();
+    }
+
+    init();
+    setInterval(saveData, 3000);
+})();
+</script>
+</body>
+</html>
