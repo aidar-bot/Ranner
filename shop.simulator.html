@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, viewport-fit=cover">
+    <title>Магазин • Shop Simulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: #1a1a2e;
+            touch-action: manipulation;
+            font-family: 'Courier New', monospace;
+        }
+        #game {
+            width: 100%;
+            height: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            background: #e8f0fe;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        .header {
+            background: #1a56db;
+            color: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .header h1 {
+            font-size: 1.2rem;
+            margin-bottom: 4px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+        .stat {
+            background: #fff;
+            border: 2px solid #1a56db;
+            border-radius: 10px;
+            padding: 8px;
+            text-align: center;
+            font-size: 0.75rem;
+        }
+        .stat .value {
+            font-size: 1rem;
+            font-weight: bold;
+            color: #1a56db;
+        }
+        .shelves {
+            background: #fff;
+            border: 2px solid #1a56db;
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 8px;
+        }
+        .shelves h3 {
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+            color: #1a56db;
+        }
+        .shelf-slot {
+            background: #f0f4ff;
+            border: 1px solid #b0c4de;
+            border-radius: 8px;
+            padding: 8px;
+            margin: 4px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+        }
+        .shelf-slot .item-name {
+            font-weight: bold;
+        }
+        .shelf-slot input[type="range"] {
+            width: 80px;
+            margin: 0 5px;
+        }
+        .shelf-slot .sell-btn {
+            background: #1a56db;
+            color: #fff;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-family: monospace;
+        }
+        .shop-section {
+            background: #fff;
+            border: 2px solid #1a56db;
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 8px;
+        }
+        .shop-section h3 {
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+            color: #1a56db;
+        }
+        .buy-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 0.75rem;
+        }
+        .buy-btn {
+            background: #4caf50;
+            color: #fff;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-family: monospace;
+        }
+        .upgrades {
+            background: #fff;
+            border: 2px solid #1a56db;
+            border-radius: 12px;
+            padding: 10px;
+          margin-bottom: 8px;
+        }
+        .upgrades h3 {
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+            color: #1a56db;
+        }
+        .upgrade-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            font-size: 0.75rem;
+        }
+        .event-log {
+            background: #fff;
+            border: 2px solid #ff9800;
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 8px;
+            font-size: 0.7rem;
+            color: #e65100;
+            max-height: 60px;
+            overflow-y: auto;
+        }
+        .next-day-btn {
+            background: #1a56db;
+            color: #fff;
+            border: none;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            font-family: monospace;
+            margin-bottom: 8px;
+        }
+        .win-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 20;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        .win-box {
+            background: #1e1e2e;
+            border: 3px solid #ffd700;
+            border-radius: 20px;
+            padding: 25px;
+            text-align: center;
+            color: #fff;
+            font-family: monospace;
+        }
+        .win-box h2 {
+            color: #ffd700;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game">
+        <div class="header">
+            <h1>🏪 МАГАЗИН</h1>
+            <div class="stats">
+                <div class="stat">💰 <span class="value" id="moneyDisplay">500</span>р</div>
+                <div class="stat">⭐ <span class="value" id="repDisplay">50</span></div>
+                <div class="stat">📅 День <span class="value" id="dayDisplay">1</span>/30</div>
+            </div>
+        </div>
+
+        <div class="shelves" id="shelvesContainer">
+            <h3>📦 Полки магазина (<span id="shelfCount">6</span> слотов)</h3>
+            <div id="shelvesList"></div>
+        </div>
+
+        <div class="shop-section">
+            <h3>🏭 Закупка товаров</h3>
+            <div id="buyList"></div>
+        </div>
+
+        <div class="upgrades">
+            <h3>🔧 Улучшения</h3>
+            <div id="upgradesList"></div>
+        </div>
+
+        <div class="event-log" id="eventLog">📋 Добро пожаловать в магазин!</div>
+
+        <button class="next-day-btn" id="nextDayBtn">▶️ СЛЕДУЮЩИЙ ДЕНЬ</button>
+    </div>
+
+    <div class="win-overlay" id="winOverlay">
+        <div class="win-box">
+            <h2>🎉 ПОБЕДА!</h2>
+            <p>Вы заработали 10 000 рублей!</p>
+            <p>Дней: <span id="winDays">0</span></p>
+            <button class="next-day-btn" onclick="location.reload()" style="margin-top:15px;">🔄 Играть снова</button>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ========== ТОВАРЫ ==========
+            const PRODUCTS = [
+                { id: 'bread', name: '🍞 Хлеб', buyPrice: 10, minSell: 15, maxSell: 25, icon: '🍞' },
+                { id: 'milk', name: '🥛 Молоко', buyPrice: 20, minSell: 30, maxSell: 40, icon: '🥛' },
+                { id: 'candy', name: '🍬 Конфеты', buyPrice: 5, minSell: 10, maxSell: 20, icon: '🍬' },
+                { id: 'soda', name: '🥤 Газировка', buyPrice: 15, minSell: 25, maxSell: 35, icon: '🥤' },
+                { id: 'chips', name: '🍟 Чипсы', buyPrice: 10, minSell: 20, maxSell: 30, icon: '🍟' }
+            ];
+
+            const UPGRADES = [
+                { id: 'shelves', name: '📦 Расширить полки', price: 500, desc: 'До 10 слотов', bought: false, apply: () => { maxSlots = 10;
+                        updateUI(); } },
+              if (!slot || slot.quantity <= 0) return;
+                const product = PRODUCTS.find(p => p.id === slot.productId);
+                const customers = Math.floor(Math.random() * 5 + 1) + Math.floor(reputation / 20);
+                const sold = Math.min(slot.quantity, customers);
+                const revenue = sold * slot.sellPrice;
+                money += revenue;
+                slot.quantity -= sold;
+                if (slot.quantity <= 0) shelves[index] = null;
+                eventText = `💰 Продано ${sold} ${product.name} за ${revenue}р!`;
+                updateUI();
+            };
+
+            function renderBuyList() {
+                buyList.innerHTML = '';
+                PRODUCTS.forEach(product => {
+                    const div = document.createElement('div');
+                    div.className = 'buy-row';
+                    const freeSlots = shelves.filter(s => !s || s.quantity === 0).length;
+                    div.innerHTML = `
+                        <span>${product.icon} ${product.name}</span>
+                        <span>Закуп: ${product.buyPrice}р</span>
+                        <button class="buy-btn" ${freeSlots === 0 || money < product.buyPrice ? 'disabled' : ''} 
+                                onclick="window.buyProduct('${product.id}')">
+                            Купить
+                        </button>
+                    `;
+                    buyList.appendChild(div);
+                });
+            }
+
+            window.buyProduct = function(productId) {
+                const product = PRODUCTS.find(p => p.id === productId);
+                if (money < product.buyPrice) return;
+                const emptyIndex = shelves.findIndex(s => !s || s.quantity === 0);
+                if (emptyIndex === -1) return;
+                money -= product.buyPrice;
+                shelves[emptyIndex] = {
+                    productId: product.id,
+                    quantity: 10,
+                    sellPrice: Math.floor((product.minSell + product.maxSell) / 2)
+                };
+                eventText = `📦 Закуплено 10 ${product.name} за ${product.buyPrice * 10}р`;
+                updateUI();
+            };
+
+            function renderUpgrades() {
+                upgradesList.innerHTML = '';
+                UPGRADES.forEach(upg => {
+                    const div = document.createElement('div');
+                    div.className = 'upgrade-row';
+                    div.innerHTML = `
+                        <span>${upg.name}</span>
+                        <span>${upg.desc}</span>
+                        <button class="buy-btn" ${upg.bought || money < upg.price ? 'disabled' : ''} 
+                                onclick="window.buyUpgrade('${upg.id}')">
+                            ${upg.bought ? '✅' : upg.price + 'р'}
+                        </button>
+                    `;
+                    upgradesList.appendChild(div);
+                });
+            }
+
+            window.buyUpgrade = function(upgradeId) {
+                const upg = UPGRADES.find(u => u.id === upgradeId);
+                if (!upg || upg.bought || money < upg.price) return;
+                money -= upg.price;
+                upg.bought = true;
+                upg.apply();
+                eventText = `🔧 Улучшение "${upg.name}" куплено!`;
+                updateUI();
+            };
+
+            function triggerEvent() {
+                const events = [
+                    { text: '🎉 ПРАЗДНИК! Спрос удвоен!', effect: () => { reputation = Math.min(100, reputation + 15); } },
+                    { text: '📉 КРИЗИС! Спрос упал!', effect: () => { reputation = Math.max(0, reputation - 15); } },
+                    { text: '🏪 КОНКУРЕНТЫ открылись рядом...', effect: () => { reputation = Math.max(0, reputation -
+                            10); } },
+                    { text: '📢 Запущена РЕКЛАМА!', effect: () => { reputation = Math.min(100, reputation + 20); } },
+                  { text: '🤝 Пришёл ОПТОВИК! Скидка на закупку!', effect: () => { money += 50; } },
+                    { text: '📰 Статья в газете! +5 репутации', effect: () => { reputation = Math.min(100, reputation +
+                            5); } }
+                ];
+                const event = events[Math.floor(Math.random() * events.length)];
+                event.effect();
+                eventText = event.text;
+                updateUI();
+            }
+
+            function nextDay() {
+                if (gameWon) return;
+                day++;
+
+                // Авто-продажа с доставкой
+                if (deliveryActive) {
+                    let totalSold = 0;
+                    shelves.forEach((slot, i) => {
+                        if (slot && slot.quantity > 0) {
+                            const sold = Math.min(slot.quantity, 3);
+                            money += sold * slot.sellPrice;
+                            slot.quantity -= sold;
+                            totalSold += sold;
+                            if (slot.quantity <= 0) shelves[i] = null;
+                        }
+                    });
+                    if (totalSold > 0) eventText = `🚚 Доставка продала ${totalSold} товаров!`;
+                }
+
+                // Событие
+                if (Math.random() < 0.5) triggerEvent();
+
+                // Проверка победы
+                if (money >= 10000) {
+                    gameWon = true;
+                    winOverlay.style.display = 'flex';
+                    winDays.textContent = day;
+                }
+
+                // Проигрыш
+                if (day > 30 && money < 10000) {
+                    eventText = '😞 30 дней прошло. Вы не достигли цели.';
+                }
+
+                updateUI();
+            }
+
+            document.getElementById('nextDayBtn').addEventListener('click', nextDay);
+
+            // Начальная инициализация
+            shelves = new Array(maxSlots).fill(null);
+            // Стартовый товар
+            shelves[0] = { productId: 'bread', quantity: 10, sellPrice: 20 };
+            money = 500;
+
+            updateUI();
+        })();
+    </script>
+</body>
+</html>
